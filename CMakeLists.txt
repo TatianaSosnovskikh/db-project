@@ -6,27 +6,32 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
-FetchContent_Declare(
-    imgui
-    GIT_REPOSITORY https://github.com
-    GIT_TAG v1.90.4
-)
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 
 FetchContent_Declare(
     glfw
-    GIT_REPOSITORY https://github.com
+    GIT_REPOSITORY "https://github.com/glfw/glfw.git"
     GIT_TAG 3.4
     GIT_SUBMODULES ""
 )
 
-FetchContent_MakeAvailable(imgui glfw)
+FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY "https://github.com/ocornut/imgui.git"
+    GIT_TAG v1.90.4
+)
+
+FetchContent_MakeAvailable(glfw)
+FetchContent_Populate(imgui)
 
 find_package(OpenGL REQUIRED)
 
 set(PROJECT_SOURCES
     main.cpp
     database_core.cpp
-    database_core.h
 )
 
 list(APPEND PROJECT_SOURCES 
@@ -41,12 +46,16 @@ list(APPEND PROJECT_SOURCES
 
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
 
-target_include_directories(${PROJECT_NAME} PRIVATE 
-    ${imgui_SOURCE_DIR} 
-    ${imgui_SOURCE_DIR}/backends
-)
+if (MINGW)
+    target_compile_options(${PROJECT_NAME} PRIVATE -finput-charset=UTF-8 -fexec-charset=CP1251)
+endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     glfw 
     OpenGL::GL
+)
+
+target_include_directories(${PROJECT_NAME} PRIVATE 
+    ${imgui_SOURCE_DIR} 
+    ${imgui_SOURCE_DIR}/backends
 )

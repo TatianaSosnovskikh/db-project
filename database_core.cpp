@@ -2,6 +2,7 @@
 #include <fstream>
 #include <cstring>
 #include <cstdio>
+#include <iostream>
 
 using namespace std;
 
@@ -39,21 +40,34 @@ bool FileDatabase::remove_database()
     return false;
 }
 
+void FileDatabase::clear_database()
+{
+    index_table.clear();
+    ofstream f(file, ios::binary | ios::trunc);
+    f.close();
+}
+
 bool FileDatabase::add_record(const Song &song, string &err)
 {
     if (index_table.find(song.id) != index_table.end())
     {
-        err = "Ошибка: Песня уже есть в базе!";
+        err = "Error: Song already exists in database!";
         return false;
     }
     ofstream f(file, ios::binary | ios::app);
     if (!f.is_open())
     {
-        err = "Ошибка: Не удалось открыть файл для записи!";
+        err = "Error: Failed to open file for writing!";
         return false;
     }
     f.seekp(0, ios::end);
     streampos pos = f.tellp();
+    f.write(reinterpret_cast<const char *>(&song), sizeof(Song));
+    if (!f)
+    {
+        err = "Error writing to file!";
+        return false;
+    }
     index_table[song.id] = pos;
     return true;
 }
@@ -72,11 +86,18 @@ bool FileDatabase::delete_bykey(const string id)
     }
     f.seekp(it->second);
     Song s;
-    f.read(reinterpret_cast<char *>(&s), sizeof(Song));
+
+    if (!f.read(reinterpret_cast<char *>(&s), sizeof(Song)))
+    {
+        return false;
+    }
     s.is_deleted = true;
 
     f.seekp(it->second);
-    f.write(reinterpret_cast<const char *>(&s), sizeof(Song));
+    if (!f.write(reinterpret_cast<const char *>(&s), sizeof(Song)))
+    {
+        return false;
+    }
     index_table.erase(it);
     return true;
 }
@@ -98,6 +119,10 @@ int FileDatabase::delete_byfield(const string &field, const string &value)
         if (field == "title" && string(s.title) == value)
             match = true;
         else if (field == "artist" && string(s.artist) == value)
+            match = true;
+        else if (field == "year" && to_string(s.release_year) == value)
+            match = true;
+        else if (field == "duration" && to_string(s.duration).find(value) != string::npos)
             match = true;
 
         if (match)
@@ -127,7 +152,10 @@ bool FileDatabase::find_bykey(const string &id, Song &result)
         return false;
 
     f.seekg(it->second);
-    f.read(reinterpret_cast<char *>(&result), sizeof(Song));
+    if (!f.read(reinterpret_cast<char *>(&result), sizeof(Song)))
+    {
+        return false;
+    }
     return true;
 }
 
@@ -151,6 +179,10 @@ vector<Song> FileDatabase::find_byfield(const string &field, const string &value
             match = true;
         else if (field == "year" && to_string(s.release_year) == value)
             match = true;
+        else if (field == "year" && to_string(s.release_year) == value)
+            match = true;
+        else if (field == "duration" && to_string(s.duration).find(value) != string::npos)
+            match = true;
 
         if (match)
             results.push_back(s);
@@ -169,7 +201,10 @@ bool FileDatabase::update_record(const Song &updated_song)
         return false;
 
     f.seekp(it->second);
-    f.write(reinterpret_cast<const char *>(&updated_song), sizeof(Song));
+    if (!f.write(reinterpret_cast<const char *>(&updated_song), sizeof(Song)))
+    {
+        return false;
+    }
     return true;
 }
 
@@ -212,7 +247,7 @@ bool FileDatabase::import_toxlsx(const string &xlsx_file)
     if (!csv.is_open())
         return false;
 
-    csv << "ISRC;Title;Artist;Release Year;Duration\n";
+    csv << "ID;Title;Artist;Release Year;Duration\n";
 
     vector<Song> active_songs = get_all_valid_records();
 
