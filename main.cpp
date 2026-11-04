@@ -6,6 +6,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <chrono>
 
 using namespace std;
 
@@ -52,6 +53,12 @@ int main(int, char **)
     string system_msg = "System is ready.";
     bool msg_is_error = false;
 
+    double time_add = 0.0;
+    double time_delete_key = 0.0;
+    double time_delete_field = 0.0;
+    double time_search_key = 0.0;
+    double time_search_field = 0.0;
+
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
@@ -95,6 +102,8 @@ int main(int, char **)
             s.duration = in_duration;
             s.is_deleted = false;
 
+            auto start = chrono::high_resolution_clock::now();
+
             if (db.add_record(s, err))
             {
                 system_msg = "Song successfully added to file.";
@@ -106,6 +115,9 @@ int main(int, char **)
                 system_msg = err;
                 msg_is_error = true;
             }
+            auto end = chrono::high_resolution_clock::now();
+            chrono::duration<double, milli> duration = end - start;
+            time_add = duration.count();
         }
         ImGui::SameLine();
         if (ImGui::Button("Update by ID", ImVec2(160, 0)))
@@ -152,7 +164,7 @@ int main(int, char **)
 
         if (ImGui::Button("Search", ImVec2(100, 0)))
         {
-            if (strlen(search_val) == 0)
+            if (std::strlen(search_val) == 0)
             {
                 is_searching = false;
                 system_msg = "Showing all records.";
@@ -161,34 +173,43 @@ int main(int, char **)
             else
             {
                 current_view.clear();
+
+                auto start = std::chrono::high_resolution_clock::now();
+
                 if (search_type == 0)
                 {
                     Song res;
                     if (db.find_bykey(search_val, res))
                         current_view.push_back(res);
+
+                    auto end = std::chrono::high_resolution_clock::now();
+                    time_search_key = std::chrono::duration<double, std::milli>(end - start).count();
                 }
-                else if (search_type == 1)
+                else
                 {
-                    current_view = db.find_byfield("title", search_val);
+                    if (search_type == 1)
+                        current_view = db.find_byfield("title", search_val);
+                    else if (search_type == 2)
+                        current_view = db.find_byfield("artist", search_val);
+                    else if (search_type == 3)
+                        current_view = db.find_byfield("year", search_val);
+                    else if (search_type == 4)
+                        current_view = db.find_byfield("duration", search_val);
+
+                    auto end = std::chrono::high_resolution_clock::now();
+                    time_search_field = std::chrono::duration<double, std::milli>(end - start).count();
                 }
-                else if (search_type == 2)
-                {
-                    current_view = db.find_byfield("artist", search_val);
-                }
-                else if (search_type == 3)
-                    current_view = db.find_byfield("year", search_val);
-                else if (search_type == 4)
-                    current_view = db.find_byfield("duration", search_val);
 
                 is_searching = true;
-
-                system_msg = "Search completed. Records found: " + to_string(current_view.size());
+                system_msg = "Search completed. Records found: " + std::to_string(current_view.size());
                 msg_is_error = false;
             }
         }
         ImGui::SameLine();
         if (ImGui::Button("Delete", ImVec2(100, 0)))
         {
+            auto start = std::chrono::high_resolution_clock::now();
+
             if (search_type == 0)
             {
                 if (db.delete_bykey(search_val))
@@ -198,16 +219,17 @@ int main(int, char **)
                 }
                 else
                 {
-                    system_msg = "Error: ID not found.";
+                    system_msg = "Error: ISRC not found.";
                     msg_is_error = true;
                 }
+
+                auto end = std::chrono::high_resolution_clock::now();
+                time_delete_key = std::chrono::duration<double, std::milli>(end - start).count();
             }
             else
             {
-                string f_name = "title";
-                if (search_type == 1)
-                    f_name = "title";
-                else if (search_type == 2)
+                std::string f_name = "title";
+                if (search_type == 2)
                     f_name = "artist";
                 else if (search_type == 3)
                     f_name = "year";
@@ -215,9 +237,13 @@ int main(int, char **)
                     f_name = "duration";
 
                 int deleted = db.delete_byfield(f_name, search_val);
-                system_msg = "Batch deletion completed. Deleted: " + to_string(deleted);
+                system_msg = "Batch deletion completed. Deleted: " + std::to_string(deleted);
                 msg_is_error = false;
+
+                auto end = std::chrono::high_resolution_clock::now();
+                time_delete_field = std::chrono::duration<double, std::milli>(end - start).count();
             }
+
             is_searching = false;
         }
         ImGui::SameLine();
@@ -295,6 +321,29 @@ int main(int, char **)
                 msg_is_error = true;
             }
         }
+        if (ImGui::Button("Import from TXT (import.txt)", ImVec2(320, 0)))
+        {
+            if (db.import_from_txt("import.txt"))
+            {
+                system_msg = "Data successfully imported from import.txt.";
+                msg_is_error = false;
+                is_searching = false;
+            }
+            else
+            {
+                system_msg = "Error: import.txt not found or empty. Check console.";
+                msg_is_error = true;
+            }
+        }
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "PERFORMANCE STATS:");
+        ImGui::Text("Add:    %.3f ms", time_add);
+        ImGui::Text("Search by key: %.3f ms", time_search_key);
+        ImGui::Text("Search by field: %.3f ms", time_search_field);
+        ImGui::Text("Delete by key: %.3f ms", time_delete_key);
+        ImGui::Text("Delete by field: %.3f ms", time_delete_field);
+        ImGui::Spacing();
 
         ImGui::Spacing();
         ImGui::Spacing();

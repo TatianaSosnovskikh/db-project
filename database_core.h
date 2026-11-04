@@ -26,6 +26,7 @@ public:
     bool update_record(const Song &updated_song);
     bool create_backup(const string &backup_file);
     bool restore_frombackup(const string &backup_file);
+    bool import_from_txt(const string &txt_file);
     bool import_toxlsx(const string &xlsx_file);
 
     vector<Song> get_all_valid_records();

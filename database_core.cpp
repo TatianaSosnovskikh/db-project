@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cstdio>
 #include <iostream>
+#include <sstream>
 
 using namespace std;
 
@@ -260,6 +261,71 @@ bool FileDatabase::import_toxlsx(const string &xlsx_file)
             << song.duration << "\n";
     }
     return true;
+}
+
+bool FileDatabase::import_from_txt(const string &txt_file)
+{
+    ifstream f_in(txt_file);
+    if (!f_in.is_open())
+    {
+        cout << "[DB ERROR] Cannot open import file: " << txt_file << endl;
+        return false;
+    }
+
+    string line;
+    int imported_count = 0;
+
+    while (getline(f_in, line))
+    {
+        if (line.empty())
+            continue;
+
+        stringstream ss(line);
+        string s_id, s_title, s_artist, s_year, s_duration;
+
+        getline(ss, s_id, ';');
+        getline(ss, s_title, ';');
+        getline(ss, s_artist, ';');
+        getline(ss, s_year, ';');
+        getline(ss, s_duration, ';');
+
+        if (!s_id.empty() && !s_title.empty() && !s_artist.empty() && !s_year.empty() && !s_duration.empty())
+        {
+            Song s;
+            std::strncpy(s.id, s_id.c_str(), sizeof(s.id) - 1);
+            s.id[sizeof(s.id) - 1] = '\0';
+            std::strncpy(s.title, s_title.c_str(), sizeof(s.title) - 1);
+            s.title[sizeof(s.title) - 1] = '\0';
+            std::strncpy(s.artist, s_artist.c_str(), sizeof(s.artist) - 1);
+            s.artist[sizeof(s.artist) - 1] = '\0';
+
+            try
+            {
+                s.release_year = std::stoi(s_year);
+                s.duration = std::stod(s_duration);
+            }
+            catch (...)
+            {
+                cout << "[DB ERROR] Bad number format in line: " << line << endl;
+                continue;
+            }
+
+            s.is_deleted = false;
+            std::string err;
+
+            if (add_record(s, err))
+            {
+                imported_count++;
+            }
+            else
+            {
+                cout << "[DB SKIP] " << err << " (ID: " << s_id << ")" << endl;
+            }
+        }
+    }
+
+    cout << "[DB INFO] Successfully imported " << imported_count << " records." << endl;
+    return imported_count > 0;
 }
 
 vector<Song> FileDatabase::get_all_valid_records()
