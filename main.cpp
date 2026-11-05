@@ -233,7 +233,7 @@ int main(int, char **)
         ImGui::Spacing();
         ImGui::Text("SERVICE FUNCTIONS");
         ImGui::Separator();
-        if (ImGui::Button("Create Backup (backup.bak)", ImVec2(320, 0)))
+        if (ImGui::Button("Create Backup", ImVec2(320, 0)))
         {
             if (db.create_backup("backup.bak"))
             {
